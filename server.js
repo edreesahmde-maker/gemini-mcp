@@ -271,7 +271,16 @@ function buildServer() {
 const app = express();
 app.use(express.json({ limit: '50mb' })); // base64 audio/image payloads need a larger body limit
 
-app.post('/mcp', async (req, res) => {
+// Optional shared secret: when MCP_SECRET is set, the endpoint becomes /mcp/<MCP_SECRET>
+// so a public URL can't be used to spend the API key. claude.ai connectors can't send
+// custom headers, so the secret lives in the path.
+const MCP_SECRET = process.env.MCP_SECRET;
+const MCP_PATH = MCP_SECRET ? `/mcp/${MCP_SECRET}` : '/mcp';
+if (!MCP_SECRET) {
+  console.warn('[gemini-mcp] WARNING: MCP_SECRET is not set. The /mcp endpoint is open to anyone who finds the URL.');
+}
+
+app.post(MCP_PATH, async (req, res) => {
   try {
     const server = buildServer();
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
@@ -289,7 +298,7 @@ app.post('/mcp', async (req, res) => {
   }
 });
 
-app.get('/mcp', (_req, res) => {
+app.get(MCP_PATH, (_req, res) => {
   res.status(405).json({ error: 'Method not allowed. MCP clients should POST to this endpoint.' });
 });
 
